@@ -7,7 +7,6 @@
 #ifdef _MSC_VER
 #pragma warning(disable : 4611)  // setjmp and C++ destructors: see below
 #endif
-
 // MuPDF reports errors with setjmp/longjmp (fz_try/fz_catch). No C++ object with
 // a destructor may live inside those blocks, and locals changed inside fz_try
 // must be marked with fz_var. The functions below follow that rule.

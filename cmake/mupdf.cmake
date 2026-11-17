@@ -62,8 +62,9 @@ add_library(mupdf_min STATIC
   ${_fonts_c})
 set_target_properties(mupdf_min PROPERTIES LINKER_LANGUAGE C)
 
+# SYSTEM: MuPDF's headers don't pass the plugin's warning level (/W4).
+target_include_directories(mupdf_min SYSTEM PUBLIC ${MU}/include ${CMAKE_SOURCE_DIR}/mupdf-overrides)
 target_include_directories(mupdf_min
-  PUBLIC ${MU}/include ${CMAKE_SOURCE_DIR}/mupdf-overrides
   PRIVATE ${MU}/source/fitz ${MU}/source/pdf
           ${MU}/thirdparty/freetype/include ${MU}/scripts/freetype
           ${MU}/thirdparty/libjpeg ${MU}/scripts/libjpeg

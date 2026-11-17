@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.22)
 set(TCL_VERSION "0.1.0" CACHE STRING "Version (MAJOR.MINOR.PATCH)")
 project(tcl_mupdfv VERSION ${TCL_VERSION} LANGUAGES C CXX)
 

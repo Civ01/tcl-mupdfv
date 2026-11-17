@@ -23,7 +23,7 @@ The standard PDF fonts (Helvetica, Times, Courier) are taken from Windows (Arial
 
 ## Build
 
-Needs CMake ≥ 3.20 and Visual Studio 2022.
+Needs CMake ≥ 3.22 and Visual Studio 2022.
 
 ```bat
 git clone https://github.com/Civ01/tcl-mupdfv
