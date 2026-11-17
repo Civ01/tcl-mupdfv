@@ -132,6 +132,7 @@ int Viewer::pageX(int page) const {
 void Viewer::layout() {
     if (!doc_ || inLayout_) return;
     inLayout_ = true;
+    int oldW = docW_, oldH = docH_;
     // Showing or hiding a scroll bar changes the client size; repeat until stable.
     for (int pass = 0; pass < 3; pass++) {
         RECT rc;
@@ -159,6 +160,12 @@ void Viewer::layout() {
         RECT after;
         GetClientRect(hwnd_, &after);
         if (after.right == rc.right && after.bottom == rc.bottom) break;
+    }
+    // Keep the same part of the document in view when the zoom changed.
+    if (oldH > 0 && oldH != docH_) {
+        scrollX_ = static_cast<int>(static_cast<long long>(scrollX_) * docW_ / std::max(1, oldW));
+        scrollY_ = static_cast<int>(static_cast<long long>(scrollY_) * docH_ / oldH);
+        updateScrollBars();
     }
     inLayout_ = false;
 }
