@@ -59,6 +59,7 @@ Viewer* Viewer::create(HWND parent, const std::wstring& file) {
     bool& registered = g_registered;
     if (!registered) {
         WNDCLASSEXW wc{sizeof wc};
+        wc.style = CS_DBLCLKS;
         wc.lpfnWndProc = &Viewer::proc;
         wc.hInstance = inst;
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
@@ -122,7 +123,8 @@ bool Viewer::load(const std::wstring& file) {
     doc_ = std::move(doc);
     freeTiles();
     quads_.clear();
-    hasSel_ = dragging_ = false;
+    hasSel_ = false;
+    drag_ = Drag::None;
     Config cfg = Config::load();
     fit_ = !(cfg.rememberZoom && cfg.zoomPercent > 0);
     if (!fit_) zoom_ = percentToZoom(cfg.zoomPercent);
@@ -509,6 +511,25 @@ void Viewer::copy() {
     CloseClipboard();
 }
 
+void Viewer::endDrag() {
+    if (drag_ == Drag::None) return;
+    drag_ = Drag::None;
+    KillTimer(hwnd_, kDragTimer);
+    if (GetCapture() == hwnd_) ReleaseCapture();
+}
+
+void Viewer::updateCursor() {
+    POINT pt;
+    GetCursorPos(&pt);
+    ScreenToClient(hwnd_, &pt);
+    Pos p;
+    LPCWSTR cur = IDC_ARROW;
+    if (drag_ == Drag::Pan || pt.y < barH_) cur = IDC_HAND;
+    else if (drag_ == Drag::Select) cur = IDC_IBEAM;
+    else if (pageAt(pt, p, false)) cur = GetKeyState(VK_MENU) < 0 ? IDC_IBEAM : IDC_HAND;
+    SetCursor(LoadCursor(nullptr, cur));
+}
+
 void Viewer::dragTo(POINT client) {
     Pos p;
     if (!pageAt(client, p, true)) return;
@@ -643,26 +664,61 @@ LRESULT Viewer::handle(UINT msg, WPARAM wp, LPARAM lp) {
                 updateBar();
                 return 0;
             }
-            bool had = hasSel_;
-            hasSel_ = false;
-            if (pageAt(pt, anchor_, true)) {
-                focus_ = anchor_;
-                dragging_ = true;
-                dragPoint_ = pt;
+            endDrag();
+            if (GetKeyState(VK_MENU) < 0) {
+                // Alt+drag: select text.
+                altUsed_ = true;
+                bool had = hasSel_;
+                hasSel_ = false;
+                if (pageAt(pt, anchor_, true)) {
+                    focus_ = anchor_;
+                    drag_ = Drag::Select;
+                    dragPoint_ = pt;
+                    SetCapture(hwnd_);
+                    SetTimer(hwnd_, kDragTimer, 50, nullptr);
+                }
+                if (had) selectionChanged();
+            } else {
+                // Drag: pan. A click without moving clears the selection (on button up).
+                drag_ = Drag::Pan;
+                moved_ = false;
+                panStart_ = pt;
+                panScrollX_ = scrollX_;
+                panScrollY_ = scrollY_;
                 SetCapture(hwnd_);
-                SetTimer(hwnd_, kDragTimer, 50, nullptr);
             }
-            if (had) selectionChanged();
+            updateCursor();
+            return 0;
+        }
+        case WM_LBUTTONDBLCLK: {
+            // Select the word under the cursor (the first click already started a pan).
+            endDrag();
+            POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+            if (pt.y < barH_) return 0;
+            ignoreUp_ = true;
+            if (GetKeyState(VK_MENU) < 0) altUsed_ = true;
+            Pos p;
+            fz_point a, b;
+            if (pageAt(pt, p, false) && doc_->wordAt(p.page, p.pt, a, b)) {
+                anchor_ = {p.page, a};
+                focus_ = {p.page, b};
+                hasSel_ = true;
+                selectionChanged();
+            }
             return 0;
         }
         case WM_MOUSEMOVE:
-            if (dragging_) {
+            if (drag_ == Drag::Select) {
                 dragPoint_ = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
                 dragTo(dragPoint_);
+            } else if (drag_ == Drag::Pan) {
+                int dx = GET_X_LPARAM(lp) - panStart_.x, dy = GET_Y_LPARAM(lp) - panStart_.y;
+                if (dx || dy) moved_ = true;
+                scrollTo(panScrollX_ - dx, panScrollY_ - dy);
             }
             return 0;
         case WM_TIMER:
-            if (wp == kDragTimer && dragging_) {
+            if (wp == kDragTimer && drag_ == Drag::Select) {
                 // Auto-scroll while dragging above or below the view.
                 RECT rc;
                 GetClientRect(hwnd_, &rc);
@@ -674,23 +730,40 @@ LRESULT Viewer::handle(UINT msg, WPARAM wp, LPARAM lp) {
                 }
             }
             return 0;
-        case WM_LBUTTONUP:
+        case WM_LBUTTONUP: {
+            bool click = drag_ == Drag::Pan && !moved_ && !ignoreUp_;
+            endDrag();
+            ignoreUp_ = false;
+            if (click && hasSel_) {
+                hasSel_ = false;
+                selectionChanged();
+            }
+            updateCursor();
+            return 0;
+        }
         case WM_CAPTURECHANGED:
-            if (dragging_) {
-                dragging_ = false;
+            if (reinterpret_cast<HWND>(lp) != hwnd_) {
+                drag_ = Drag::None;
                 KillTimer(hwnd_, kDragTimer);
-                if (msg == WM_LBUTTONUP) ReleaseCapture();
             }
             return 0;
         case WM_SETCURSOR:
             if (LOWORD(lp) == HTCLIENT) {
-                POINT pt;
-                GetCursorPos(&pt);
-                ScreenToClient(hwnd_, &pt);
-                Pos p;
-                LPCWSTR cur = pt.y < barH_ ? IDC_HAND : pageAt(pt, p, false) ? IDC_IBEAM : IDC_ARROW;
-                SetCursor(LoadCursor(nullptr, cur));
+                updateCursor();
                 return TRUE;
+            }
+            break;
+        case WM_SYSKEYDOWN:
+            if (wp == VK_MENU) updateCursor();
+            break;
+        case WM_SYSKEYUP:
+            if (wp == VK_MENU) {
+                updateCursor();
+                // Alt was used for selecting: releasing it must not open Lister's menu.
+                if (altUsed_) {
+                    altUsed_ = false;
+                    return 0;
+                }
             }
             break;
         case WM_GETDLGCODE:

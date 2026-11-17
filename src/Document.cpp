@@ -191,6 +191,30 @@ void Document::highlight(int page, fz_point a, fz_point b, std::vector<fz_quad>&
     }
 }
 
+bool Document::wordAt(int page, fz_point pt, fz_point& a, fz_point& b) {
+    fz_stext_page* t = text(page);
+    if (!t) return false;
+    fz_point pa = pt, pb = pt;
+    fz_quad q{};
+    bool ok = false;
+    fz_var(ok);
+    fz_try(ctx_) {
+        q = fz_snap_selection(ctx_, t, &pa, &pb, FZ_SELECT_WORDS);
+        ok = true;
+    }
+    fz_catch(ctx_) { fz_ignore_error(ctx_); }
+    if (!ok) return false;
+    // After the last character on the page MuPDF leaves the end point unchanged.
+    if ((pa.x == pt.x && pa.y == pt.y) || (pb.x == pt.x && pb.y == pt.y)) return false;
+    // MuPDF snaps to the nearest character however far away it is; only
+    // accept the word if the point is on it.
+    fz_rect r = fz_expand_rect(fz_rect_from_quad(q), 1.0f);
+    if (fz_is_empty_rect(r) || !fz_is_point_inside_rect(pt, r)) return false;
+    a = pa;
+    b = pb;
+    return true;
+}
+
 std::string Document::copy(int page, fz_point a, fz_point b) {
     fz_stext_page* t = text(page);
     if (!t) return {};

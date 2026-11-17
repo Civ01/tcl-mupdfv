@@ -30,6 +30,8 @@ public:
 
     // Highlight quads (page space) of the text between a and b, in reading order.
     void highlight(int page, fz_point a, fz_point b, std::vector<fz_quad>& out);
+    // The word at `pt`: sets a and b to its start and end. False if `pt` is not on a word.
+    bool wordAt(int page, fz_point pt, fz_point& a, fz_point& b);
     // Text between a and b, UTF-8 with CRLF line ends.
     std::string copy(int page, fz_point a, fz_point b);
 

@@ -1,6 +1,7 @@
 // The Lister window: pages stacked vertically; on open one whole page fits the
 // view (or the remembered zoom is used, see Config).
-// Mouse wheel scrolls, Ctrl+wheel zooms, dragging selects text, Ctrl+C copies.
+// Mouse wheel scrolls, Ctrl+wheel zooms, dragging pans, Alt+dragging selects text,
+// double-click selects a word, Ctrl+C copies.
 #pragma once
 
 #include <windows.h>
@@ -65,6 +66,8 @@ private:
     bool selectionOn(int page, fz_point& a, fz_point& b) const;
     void selectionChanged();
     void dragTo(POINT client);
+    void endDrag();
+    void updateCursor();
 
     HWND hwnd_;
     std::unique_ptr<Document> doc_;
@@ -81,7 +84,14 @@ private:
     HBITMAP back_ = nullptr;
     SIZE backSize_{};
 
-    bool hasSel_ = false, dragging_ = false;
+    enum class Drag { None, Pan, Select };
+    Drag drag_ = Drag::None;
+    bool hasSel_ = false;
+    bool moved_ = false;     // the mouse moved while panning
+    bool ignoreUp_ = false;  // button-up that ends a double-click
+    bool altUsed_ = false;   // Alt was used with the mouse: don't open Lister's menu
+    POINT panStart_{};
+    int panScrollX_ = 0, panScrollY_ = 0;
     Pos anchor_, focus_;
     POINT dragPoint_{};
     std::unordered_map<int, std::vector<fz_quad>> quads_;

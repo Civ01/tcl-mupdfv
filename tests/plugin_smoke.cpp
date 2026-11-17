@@ -132,6 +132,23 @@ void pump() {
 }
 
 const COLORREF kBar = RGB(255, 244, 206);
+
+// The plugin reads Alt with GetKeyState, which follows this thread's key state.
+void setAlt(bool down) {
+    BYTE keys[256];
+    GetKeyboardState(keys);
+    keys[VK_MENU] = down ? 0x80 : 0;
+    SetKeyboardState(keys);
+}
+
+void click(HWND w, int x, int y, bool dbl = false) {
+    SendMessageW(w, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(x, y));
+    SendMessageW(w, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+    if (dbl) {
+        SendMessageW(w, WM_LBUTTONDBLCLK, MK_LBUTTON, MAKELPARAM(x, y));
+        SendMessageW(w, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+    }
+}
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
@@ -203,10 +220,12 @@ int wmain(int argc, wchar_t** argv) {
     dump(sel, "2-select-all");
     CHECK(sel.count(RGB(150, 195, 255), 10) > 500, "selection highlight drawn");
 
-    // Drag over the top part of page 1 only, then Ctrl+C.
+    // Alt+drag over the top part of page 1 only, then Ctrl+C.
+    setAlt(true);
     SendMessageW(win, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(5, 5));
     SendMessageW(win, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(kW - 30, c.h / 3));
     SendMessageW(win, WM_LBUTTONUP, 0, MAKELPARAM(kW - 30, c.h / 3));
+    setAlt(false);
     clearClipboard();
     SendMessageW(win, WM_KEYDOWN, 'C', 0);  // without Ctrl: nothing
     CHECK(clipboardText().empty(), "plain C does not copy");
@@ -216,11 +235,34 @@ int wmain(int argc, wchar_t** argv) {
     CHECK(part.find(L"Second page text") == std::wstring::npos, "drag copy stops on page 1");
 
     // Click clears the selection.
-    SendMessageW(win, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(100, 100));
-    SendMessageW(win, WM_LBUTTONUP, 0, MAKELPARAM(100, 100));
+    click(win, 100, 100);
     clearClipboard();
     send(win, 1, 0);
     CHECK(clipboardText().empty(), "click clears the selection");
+
+    // Plain drag pans (and selects nothing).
+    int top = GetScrollPos(win, SB_VERT);
+    SendMessageW(win, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(400, 600));
+    SendMessageW(win, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(400, 300));
+    SendMessageW(win, WM_LBUTTONUP, 0, MAKELPARAM(400, 300));
+    CHECK(GetScrollPos(win, SB_VERT) == top + 300, "drag pans the view");
+    send(win, 1, 0);
+    CHECK(clipboardText().empty(), "panning selects nothing");
+    SendMessageW(win, WM_KEYDOWN, VK_HOME, 0);
+
+    // Double-click selects the word under the cursor; on empty space, nothing.
+    // "Helvetica" in "Hello Helvetica" is at about x 175-260, y 87 at this size.
+    click(win, 215, 87, true);
+    send(win, 1, 0);
+    std::wstring word = clipboardText();
+    std::printf("double-click copied \"%ls\"\n", word.c_str());
+    CHECK(word.find(L"Helvetica") == 0 && word.size() <= 10, "double-click selects one word");
+    clearClipboard();
+    click(win, 400, 600, true);
+    send(win, 1, 0);
+    std::wstring empty = clipboardText();
+    std::printf("empty-space double-click copied \"%ls\"\n", empty.c_str());
+    CHECK(empty.empty(), "double-click on empty space selects nothing");
 
     // Ctrl+wheel zooms in around the cursor.
     POINT pt{kW / 2, kH / 2};
