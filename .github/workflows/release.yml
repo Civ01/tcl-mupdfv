@@ -54,7 +54,7 @@ jobs:
         run: |
           label="${GITHUB_REF_NAME#v}"
           mkdir pkg
-          cp artifacts/plugin-x64/tcl-mupdfv.wlx64 artifacts/plugin-Win32/tcl-mupdfv.wlx dist/pluginst.inf README.md LICENSE pkg/
+          cp artifacts/plugin-x64/tcl-mupdfv.wlx64 artifacts/plugin-Win32/tcl-mupdfv.wlx dist/pluginst.inf dist/tcl-mupdfv.ini README.md LICENSE pkg/
           (cd pkg && zip -9 ../tcl-mupdfv-$label.zip *)
           pre=""; [[ "$label" == *-* ]] && pre="--prerelease"
           gh release create "$GITHUB_REF_NAME" tcl-mupdfv-$label.zip --title "tcl-mupdfv $label" --generate-notes $pre

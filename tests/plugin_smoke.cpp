@@ -178,12 +178,15 @@ int wmain(int argc, wchar_t** argv) {
     if (!win) return 1;
     pump();
 
-    // Fit to width: page is white across most of the row, blue rectangle drawn, no warning bar.
+    // Fit page: one whole page visible (background above and below it), blue
+    // rectangle drawn, no warning bar.
     Capture c = capture(win);
     dump(c, "1-text");
     int row = c.h / 3;
     int width1 = c.whiteRun(row);
-    CHECK(width1 > c.w * 8 / 10, "page fills the width");
+    CHECK(width1 > c.w / 2 && width1 < c.w * 95 / 100, "page narrower than the view");
+    CHECK(c.at(c.w / 2, 2) == RGB(128, 128, 128) && c.at(c.w / 2, c.h - 2) == RGB(128, 128, 128),
+          "whole page height visible");
     CHECK(c.count(RGB(0, 0, 255)) > 1000, "blue rectangle rendered");
     CHECK(c.count(RGB(0, 0, 0), 60) > 200, "text rendered");
     CHECK(c.at(2, 2) != kBar, "no warning bar for text.pdf");
@@ -257,6 +260,25 @@ int wmain(int argc, wchar_t** argv) {
 
     close(win);
     CHECK(!IsWindow(win), "ListCloseWindow destroys the window");
+
+    // remember_zoom in <plugin>.ini: off by default, on keeps the last Ctrl+wheel zoom.
+    std::wstring ini = argv[1];
+    ini = ini.substr(0, ini.find_last_of(L'.')) + L".ini";
+    auto zoomedLoad = [&](bool remember, bool zoomIn) {
+        WritePrivateProfileStringW(L"General", L"remember_zoom", remember ? L"1" : L"0", ini.c_str());
+        HWND w = load(parent, text.data(), 0);
+        if (zoomIn) SendMessageW(w, WM_MOUSEWHEEL, MAKEWPARAM(MK_CONTROL, 2 * WHEEL_DELTA), MAKELPARAM(pt.x, pt.y));
+        int width = capture(w).whiteRun(row);
+        close(w);
+        return width;
+    };
+    DeleteFileW(ini.c_str());
+    CHECK(zoomedLoad(true, false) == width1, "remember_zoom without a saved zoom fits the page");
+    zoomedLoad(true, true);
+    CHECK(GetPrivateProfileIntW(L"General", L"zoom", 0, ini.c_str()) > 100, "zoom saved to the INI");
+    CHECK(zoomedLoad(true, false) > width1, "remembered zoom applied to the next file");
+    CHECK(zoomedLoad(false, false) == width1, "remember_zoom=0 fits the page");
+    DeleteFileW(ini.c_str());
     DestroyWindow(parent);
     FreeLibrary(dll);
     std::printf(failures ? "%d check(s) failed\n" : "all checks passed\n", failures);

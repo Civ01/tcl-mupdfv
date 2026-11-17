@@ -20,6 +20,7 @@ if(WIN32)
   enable_language(RC)
   add_library(tcl-mupdfv SHARED
     src/exports.cpp
+    src/Config.cpp
     src/Document.cpp
     src/Viewer.cpp
     src/plugin.rc
@@ -51,7 +52,7 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${_pkg}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${_pkg}
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tcl-mupdfv> ${CMAKE_SOURCE_DIR}/dist/pluginst.inf
-            ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/LICENSE ${_pkg}/
+            ${CMAKE_SOURCE_DIR}/dist/tcl-mupdfv.ini ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/LICENSE ${_pkg}/
     COMMAND ${CMAKE_COMMAND} -E chdir ${_pkg} ${CMAKE_COMMAND} -E tar cf
             ${CMAKE_BINARY_DIR}/tcl-mupdfv-${PROJECT_VERSION}-${_arch}.zip --format=zip .
     DEPENDS tcl-mupdfv)

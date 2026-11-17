@@ -9,7 +9,11 @@ It only displays PDFs: scroll, **Ctrl+mouse wheel** to zoom, drag to select text
 1. Download `tcl-mupdfv-<version>.zip` from [Releases](https://github.com/Civ01/tcl-mupdfv/releases), or a CI build (GitHub → Actions → CI → artifacts).
 2. Open the zip in Total Commander and confirm the installation, or add `tcl-mupdfv.wlx64` (64-bit TC) / `tcl-mupdfv.wlx` (32-bit TC) under *Configuration → Options → Plugins → Lister (WLX)*.
 
-Requires Windows 10 or later. The plugin is a single file.
+Requires Windows 10 or later.
+
+## Settings
+
+Files open with one whole page fitted to the window. To keep your last Ctrl+wheel zoom for all files instead, set `remember_zoom=1` in `tcl-mupdfv.ini` next to the plugin.
 
 ## What it doesn't show
 

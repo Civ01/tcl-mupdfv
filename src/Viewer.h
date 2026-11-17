@@ -1,4 +1,5 @@
-// The Lister window: pages stacked vertically, fit to width on open.
+// The Lister window: pages stacked vertically; on open one whole page fits the
+// view (or the remembered zoom is used, see Config).
 // Mouse wheel scrolls, Ctrl+wheel zooms, dragging selects text, Ctrl+C copies.
 #pragma once
 
@@ -51,6 +52,9 @@ private:
     void freeTiles();
     void drawSelection(HDC dc, int page, int px, int py);
     void updateBar();
+    float percentToZoom(int percent) const;
+    int zoomToPercent() const;
+    void saveZoom();
 
     int pageX(int page) const;
     int viewHeight() const;
@@ -68,7 +72,7 @@ private:
     float zoom_ = 1.0f;  // pixels per point
     bool fit_ = true;
     int docW_ = 0, docH_ = 0, scrollX_ = 0, scrollY_ = 0;
-    int gap_ = 8, line_ = 40;
+    int dpi_ = 96, gap_ = 8, line_ = 40;
     bool inLayout_ = false;
     int wheel_ = 0, zoomWheel_ = 0, hwheel_ = 0;
 

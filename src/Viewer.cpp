@@ -1,5 +1,7 @@
 #include "Viewer.h"
 
+#include "Config.h"
+
 #include <windowsx.h>
 
 #include <algorithm>
@@ -84,9 +86,9 @@ Viewer* Viewer::from(HWND hwnd) {
 
 Viewer::Viewer(HWND hwnd) : hwnd_(hwnd) {
     HDC dc = GetDC(hwnd);
-    int dpi = GetDeviceCaps(dc, LOGPIXELSY);
-    gap_ = MulDiv(8, dpi, 96);
-    line_ = MulDiv(40, dpi, 96);
+    dpi_ = GetDeviceCaps(dc, LOGPIXELSY);
+    gap_ = MulDiv(8, dpi_, 96);
+    line_ = MulDiv(40, dpi_, 96);
     NONCLIENTMETRICSW ncm{sizeof ncm};
     SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof ncm, &ncm, 0);
     barFont_ = CreateFontIndirectW(&ncm.lfMessageFont);
@@ -94,19 +96,36 @@ Viewer::Viewer(HWND hwnd) : hwnd_(hwnd) {
 }
 
 Viewer::~Viewer() {
+    saveZoom();
     freeTiles();
     if (back_) DeleteObject(back_);
     if (barFont_) DeleteObject(barFont_);
 }
 
+// 100% = actual size on screen (1 point = 1/72 inch).
+float Viewer::percentToZoom(int percent) const {
+    return std::clamp(percent / 100.0f * dpi_ / 72.0f, kMinZoom, kMaxZoom);
+}
+
+int Viewer::zoomToPercent() const {
+    return std::max(1, static_cast<int>(std::lround(zoom_ * 72.0f / dpi_ * 100.0f)));
+}
+
+void Viewer::saveZoom() {
+    if (doc_ && Config::load().rememberZoom) Config::saveZoom(fit_ ? 0 : zoomToPercent());
+}
+
 bool Viewer::load(const std::wstring& file) {
     auto doc = Document::open(toUtf8(file));
     if (!doc) return false;
+    saveZoom();  // before the previous file is replaced (ListLoadNext)
     doc_ = std::move(doc);
     freeTiles();
     quads_.clear();
     hasSel_ = dragging_ = false;
-    fit_ = true;
+    Config cfg = Config::load();
+    fit_ = !(cfg.rememberZoom && cfg.zoomPercent > 0);
+    if (!fit_) zoom_ = percentToZoom(cfg.zoomPercent);
     scrollX_ = scrollY_ = 0;
     barShown_ = barHidden_ = 0;
     updateBar();
@@ -139,9 +158,16 @@ void Viewer::layout() {
         GetClientRect(hwnd_, &rc);
         int n = doc_->pageCount();
         if (fit_) {
-            float widest = 1;
-            for (int i = 0; i < n; i++) widest = std::max(widest, doc_->bounds(i).x1 - doc_->bounds(i).x0);
-            zoom_ = std::clamp((rc.right - 2 * gap_) / widest, kMinZoom, kMaxZoom);
+            // Fit one whole page (the largest) into the view.
+            float widest = 1, tallest = 1;
+            for (int i = 0; i < n; i++) {
+                fz_rect b = doc_->bounds(i);
+                widest = std::max(widest, b.x1 - b.x0);
+                tallest = std::max(tallest, b.y1 - b.y0);
+            }
+            float byWidth = (rc.right - 2 * gap_) / widest;
+            float byHeight = (rc.bottom - barH_ - 2 * gap_) / tallest;
+            zoom_ = std::clamp(std::min(byWidth, byHeight), kMinZoom, kMaxZoom);
         }
         slots_.resize(static_cast<size_t>(n));
         int y = gap_;
