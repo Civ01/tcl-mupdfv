@@ -7,9 +7,9 @@ A minimal, fast PDF viewer for Total Commander's Lister (F3) and Quick View (Ctr
 | Feature | Behaviour |
 |---|---|
 | Rendering | All pages stacked vertically. On open, one whole page (the largest) fits the view: a one-page file is shown completely, a longer one page by page. |
-| Scrolling | Mouse wheel, scroll bars, arrows, PgUp/PgDn, Space, Home/End. Shift+wheel scrolls horizontally. |
+| Scrolling | Mouse wheel, scroll bars, arrows, PgUp/PgDn, Space, Home/End. Shift+wheel scrolls horizontally. Dragging with the left mouse button pans. |
 | Zoom | Ctrl+mouse wheel, ×1.15 per notch, kept around the cursor. Saved only with `remember_zoom=1` (see Settings). |
-| Selection | Drag with the left mouse button, across pages too. Ctrl+A or Lister's *Select all* selects everything. A click clears the selection. |
+| Selection | Alt+drag with the left mouse button, across pages too. Double-click selects the word under the cursor (words end at spaces). Ctrl+A or Lister's *Select all* selects everything. A click clears the selection. Releasing Alt after Alt+drag or Alt+double-click doesn't open Lister's menu. |
 | Copy | Ctrl+C, Ctrl+Insert or Lister's *Copy*: plain Unicode text with CRLF line ends. |
 | Warnings | A one-line strip at the top lists content the trimmed build skips (see below). Click it to hide it. |
 
@@ -71,7 +71,7 @@ If CJK documents show `TCL_WARN_CMAP` often, the next step is to ship the remain
 ## Tests
 
 - **`core_test`** (Windows, Linux): renders `tests/samples/*.pdf` with the trimmed MuPDF and checks pixels, copied text and warning flags. On Linux, MuPDF's URW fonts stand in for the Windows fonts (`TCL_MUPDFV_FONT_DIR`).
-- **`plugin_smoke`** (Windows): loads the real DLL in a hidden `TLister` window and checks loading, painting, select all, drag selection, copy, Ctrl+wheel zoom, `remember_zoom`, wheel scrolling, the warning strip, `ListLoadNext` and `ListCloseWindow`. With `TCL_SMOKE_DUMP=<dir>` it also saves its screenshots as BMP files.
+- **`plugin_smoke`** (Windows): loads the real DLL in a hidden `TLister` window and checks loading, painting, select all, Alt+drag selection, double-click word selection, panning, copy, Ctrl+wheel zoom, `remember_zoom`, wheel scrolling, the warning strip, `ListLoadNext` and `ListCloseWindow`. With `TCL_SMOKE_DUMP=<dir>` it also saves its screenshots as BMP files.
 - **Samples:** `tests/make_samples.py` regenerates the PDFs.
 
 CI runs both tests with MSVC (x64 and x86), the core test on Linux, and a MinGW cross-compile. MinGW DLLs are larger (about 3.1 MB) because GNU ld keeps functions alive through their unwind entries on PE; release builds use MSVC.

@@ -2,7 +2,7 @@
 
 A small, fast PDF viewer plugin for Total Commander's Lister (F3) and Quick View (Ctrl+Q), built on a trimmed [MuPDF](https://mupdf.com).
 
-It only displays PDFs: scroll, **Ctrl+mouse wheel** to zoom, drag to select text, **Ctrl+C** to copy. See [SPECS.md](SPECS.md) for details.
+It only displays PDFs: scroll or drag to pan, **Ctrl+mouse wheel** to zoom, **Alt+drag** to select text, double-click to select a word, **Ctrl+C** to copy. See [SPECS.md](SPECS.md) for details.
 
 ## Install
 
