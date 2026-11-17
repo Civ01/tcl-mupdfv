@@ -1,0 +1,60 @@
+name: Release
+
+# Push a tag like v1.2.3 (or v1.2.3-beta1 for a pre-release) to build, test and
+# publish tcl-mupdfv-<version>.zip with the 64-bit and 32-bit plugin.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, Win32]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch MuPDF
+        shell: bash
+        run: |
+          git submodule update --init --depth 1 extern/mupdf
+          git -C extern/mupdf submodule update --init --depth 1 thirdparty/freetype thirdparty/jbig2dec thirdparty/libjpeg thirdparty/zlib
+      - name: Version from tag
+        id: ver
+        shell: bash
+        run: |
+          label="${GITHUB_REF_NAME#v}"
+          num="${label%%-*}"
+          [[ "$num" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag must look like v1.2.3 or v1.2.3-label"; exit 1; }
+          echo "num=$num" >> "$GITHUB_OUTPUT"
+      - name: Build and test
+        run: |
+          cmake -S . -B build -A ${{ matrix.arch }} -DTCL_VERSION=${{ steps.ver.outputs.num }}
+          cmake --build build --config Release --parallel
+          ctest --test-dir build -C Release --output-on-failure
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.arch }}
+          path: build/Release/tcl-mupdfv.wlx*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Zip and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          label="${GITHUB_REF_NAME#v}"
+          mkdir pkg
+          cp artifacts/plugin-x64/tcl-mupdfv.wlx64 artifacts/plugin-Win32/tcl-mupdfv.wlx dist/pluginst.inf README.md LICENSE pkg/
+          (cd pkg && zip -9 ../tcl-mupdfv-$label.zip *)
+          pre=""; [[ "$label" == *-* ]] && pre="--prerelease"
+          gh release create "$GITHUB_REF_NAME" tcl-mupdfv-$label.zip --title "tcl-mupdfv $label" --generate-notes $pre

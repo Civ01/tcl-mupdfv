@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, Win32]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch MuPDF
+        shell: bash
+        run: |
+          git submodule update --init --depth 1 extern/mupdf
+          git -C extern/mupdf submodule update --init --depth 1 thirdparty/freetype thirdparty/jbig2dec thirdparty/libjpeg thirdparty/zlib
+      - name: Configure
+        run: cmake -S . -B build -A ${{ matrix.arch }}
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test (core + plugin smoke test)
+        run: ctest --test-dir build -C Release --output-on-failure -V
+      - name: Plugin size
+        shell: bash
+        run: ls -l build/Release/tcl-mupdfv.wlx*
+      - name: Package
+        run: cmake --build build --config Release --target package_zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tcl-mupdfv-${{ matrix.arch }}
+          path: build/package/
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch MuPDF
+        run: |
+          git submodule update --init --depth 1 extern/mupdf
+          git -C extern/mupdf submodule update --init --depth 1 thirdparty/freetype thirdparty/jbig2dec thirdparty/libjpeg thirdparty/zlib
+      - name: Core test (native)
+        run: |
+          cmake -S . -B build
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+      - name: Install MinGW-w64
+        run: sudo apt-get update && sudo apt-get install -y g++-mingw-w64-x86-64-posix
+      - name: Cross-compile the plugin (MinGW)
+        run: |
+          cmake -S . -B build-mingw -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-x86_64.cmake \
+            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix
+          cmake --build build-mingw --parallel

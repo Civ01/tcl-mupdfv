@@ -1,0 +1,25 @@
+#include <winver.h>
+#include "version.h"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION TCL_VERSION_RC
+PRODUCTVERSION TCL_VERSION_RC
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "FileDescription", "PDF viewer for Total Commander Lister (MuPDF)"
+      VALUE "FileVersion", TCL_VERSION_STR
+      VALUE "ProductName", "tcl-mupdfv"
+      VALUE "ProductVersion", TCL_VERSION_STR
+      VALUE "LegalCopyright", "AGPL-3.0. Uses MuPDF, Copyright (C) Artifex Software, Inc."
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

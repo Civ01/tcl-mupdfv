@@ -1,0 +1,5 @@
+[plugininstall]
+description=PDF viewer (MuPDF): render, Ctrl+wheel zoom, select and copy text
+type=wlx
+file=tcl-mupdfv.wlx
+defaultdir=tcl-mupdfv

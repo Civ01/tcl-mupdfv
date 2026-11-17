@@ -1,0 +1,4 @@
+[submodule "extern/mupdf"]
+	path = extern/mupdf
+	url = https://github.com/ArtifexSoftware/mupdf.git
+	shallow = true
